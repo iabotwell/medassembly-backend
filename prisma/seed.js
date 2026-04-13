@@ -4,13 +4,14 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  // 1. Super Admin user (login via OTP)
+  // 1. Super Admin user (login: password + OTP)
+  const adminPasswordHash = await bcrypt.hash('MedAssembly2026', 10);
   await prisma.user.upsert({
     where: { email: 'iabotwell@gmail.com' },
-    update: { role: 'ADMIN', isActive: true },
+    update: { role: 'ADMIN', isActive: true, passwordHash: adminPasswordHash },
     create: {
       email: 'iabotwell@gmail.com',
-      passwordHash: await bcrypt.hash('unused-otp-only', 10),
+      passwordHash: adminPasswordHash,
       name: 'Francisco Villa',
       role: 'ADMIN',
     },
@@ -59,6 +60,6 @@ async function main() {
 main()
   .catch((e) => {
     console.error('Seed error:', e);
-    process.exit(0); // Don't fail startup if seed errors
+    process.exit(0);
   })
   .finally(() => prisma.$disconnect());
