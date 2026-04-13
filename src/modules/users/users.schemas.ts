@@ -5,7 +5,7 @@ export const createUserSchema = z.object({
   password: z.string().min(6).optional(),
   name: z.string().min(1),
   phone: z.string().optional(),
-  role: z.enum(['ADMIN', 'ENCARGADO', 'DOCTOR', 'ASISTENTE', 'CAMILLERO', 'CONSULTA']),
+  role: z.enum(['ADMIN', 'ENCARGADO_TURNO', 'ENCARGADO_SALUD', 'DOCTOR', 'ASISTENTE', 'CAMILLERO', 'CONSULTA']),
 });
 
 export const updateUserSchema = createUserSchema.partial();
