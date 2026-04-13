@@ -58,3 +58,12 @@ export async function getActiveShift() {
     include: { members: { include: { user: { select: { id: true, name: true, role: true, phone: true } } } } },
   });
 }
+
+export async function deleteShift(id: string) {
+  const shift = await prisma.shift.findUnique({ where: { id } });
+  if (!shift) throw new Error('Turno no encontrado');
+  if (shift.isActive) throw new Error('No se puede eliminar el turno activo. Active otro primero.');
+  await prisma.shiftMember.deleteMany({ where: { shiftId: id } });
+  await prisma.shift.delete({ where: { id } });
+  return { message: 'Turno eliminado' };
+}

@@ -54,3 +54,11 @@ export async function getActive(_req: AuthRequest, res: Response) {
     res.json(shift);
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 }
+
+export async function remove(req: AuthRequest, res: Response) {
+  try {
+    const result = await service.deleteShift(req.params.id);
+    await createAuditLog(req.user.id, 'DELETE_SHIFT', 'shifts', req.params.id);
+    res.json(result);
+  } catch (err: any) { res.status(400).json({ error: err.message }); }
+}

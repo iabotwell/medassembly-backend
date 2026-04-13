@@ -25,3 +25,16 @@ export async function activateEvent(id: string) {
 export async function getActiveEvent() {
   return prisma.event.findFirst({ where: { isActive: true } });
 }
+
+export async function deleteEvent(id: string) {
+  const event = await prisma.event.findUnique({
+    where: { id },
+    include: { _count: { select: { patients: true, shifts: true } } },
+  });
+  if (!event) throw new Error('Evento no encontrado');
+  if (event.isActive) throw new Error('No se puede eliminar un evento activo. Desactivelo primero.');
+  if (event._count.patients > 0) throw new Error(`No se puede eliminar: el evento tiene ${event._count.patients} pacientes registrados.`);
+  if (event._count.shifts > 0) throw new Error(`No se puede eliminar: el evento tiene ${event._count.shifts} turnos registrados.`);
+  await prisma.event.delete({ where: { id } });
+  return { message: 'Evento eliminado' };
+}

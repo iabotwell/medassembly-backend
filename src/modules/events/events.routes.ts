@@ -10,6 +10,7 @@ router.get('/', eventsController.list);
 router.post('/', requirePermission('events:create'), eventsController.create);
 router.put('/:id', requirePermission('events:update'), eventsController.update);
 router.patch('/:id/activate', requirePermission('events:update'), eventsController.activate);
+router.delete('/:id', requirePermission('events:delete'), eventsController.remove);
 router.get('/active', eventsController.getActive);
 
 export default router;

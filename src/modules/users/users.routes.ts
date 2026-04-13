@@ -12,5 +12,6 @@ router.get('/', requirePermission('users:read'), usersController.list);
 router.post('/', requirePermission('users:create'), validate(createUserSchema), usersController.create);
 router.put('/:id', requirePermission('users:update'), validate(updateUserSchema), usersController.update);
 router.patch('/:id/toggle', requirePermission('users:update'), usersController.toggle);
+router.delete('/:id', requirePermission('users:delete'), usersController.remove);
 
 export default router;

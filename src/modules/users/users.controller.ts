@@ -45,3 +45,12 @@ export async function toggle(req: AuthRequest, res: Response) {
     res.status(400).json({ error: err.message });
   }
 }
+
+export async function remove(req: AuthRequest, res: Response) {
+  try {
+    const result = await usersService.deleteUser(req.params.id, req.user.id);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+}

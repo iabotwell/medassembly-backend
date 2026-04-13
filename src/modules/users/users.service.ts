@@ -53,3 +53,33 @@ export async function toggleUser(id: string) {
   }
   return prisma.user.update({ where: { id }, data: { isActive: !user.isActive } });
 }
+
+export async function deleteUser(id: string, requesterId: string) {
+  if (id === requesterId) {
+    throw new Error('No puedes eliminar tu propia cuenta.');
+  }
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new Error('Usuario no encontrado.');
+  if (user.role === 'ADMIN') {
+    throw new Error('No se puede eliminar al Super Administrador.');
+  }
+
+  // Check if user has related records that would prevent deletion
+  const relatedCounts = await prisma.$transaction([
+    prisma.attention.count({ where: { attendedById: id } }),
+    prisma.measurement.count({ where: { measuredById: id } }),
+    prisma.emergency.count({ where: { authorizedById: id } }),
+    prisma.shiftMember.count({ where: { userId: id } }),
+  ]);
+
+  const total = relatedCounts.reduce((a, b) => a + b, 0);
+  if (total > 0) {
+    throw new Error(
+      `No se puede eliminar: el usuario tiene ${total} registros asociados (atenciones, mediciones, emergencias o turnos). Desactivelo en su lugar.`
+    );
+  }
+
+  await prisma.auditLog.deleteMany({ where: { userId: id } });
+  await prisma.user.delete({ where: { id } });
+  return { message: 'Usuario eliminado' };
+}
