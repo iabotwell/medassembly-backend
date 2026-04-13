@@ -4,14 +4,14 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  // 1. Admin user
+  // 1. Super Admin user (login via OTP)
   await prisma.user.upsert({
-    where: { email: 'admin@medassembly.cl' },
-    update: {},
+    where: { email: 'iabotwell@gmail.com' },
+    update: { role: 'ADMIN', isActive: true },
     create: {
-      email: 'admin@medassembly.cl',
-      passwordHash: await bcrypt.hash('admin123', 10),
-      name: 'Administrador',
+      email: 'iabotwell@gmail.com',
+      passwordHash: await bcrypt.hash('unused-otp-only', 10),
+      name: 'Francisco Villa',
       role: 'ADMIN',
     },
   });
