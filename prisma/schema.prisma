@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── AUTH & USERS ──────────────────────────────────
+
+enum Role {
+  ADMIN
+  ENCARGADO
+  DOCTOR
+  ASISTENTE
+  CAMILLERO
+  CONSULTA
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String?
+  firebaseUid   String?   @unique
+  name          String
+  phone         String?
+  role          Role
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  attentions    Attention[]    @relation("AttendedBy")
+  measurements  Measurement[]
+  shiftMembers  ShiftMember[]
+  emergencies   Emergency[]    @relation("AuthorizedBy")
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// ─── EVENTS ────────────────────────────────────────
+
+model Event {
+  id          String    @id @default(uuid())
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  location    String?
+  notes       String?
+  isActive    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  patients    Patient[]
+  shifts      Shift[]
+
+  @@map("events")
+}
+
+// ─── CONGREGATIONS ─────────────────────────────────
+
+model Congregation {
+  id        String   @id @default(uuid())
+  name      String
+  circuit   String?
+  city      String?
+  createdAt DateTime @default(now())
+
+  elders    Elder[]
+  patients  Patient[]
+
+  @@map("congregations")
+}
+
+model Elder {
+  id              String       @id @default(uuid())
+  name            String
+  phone           String
+  role            String?
+  congregationId  String
+  congregation    Congregation @relation(fields: [congregationId], references: [id])
+
+  @@map("elders")
+}
+
+// ─── PATIENTS ──────────────────────────────────────
+
+enum PatientStatus {
+  WAITING_TRIAGE
+  WAITING_ATTENTION
+  IN_ATTENTION
+  IN_OBSERVATION
+  IN_EMERGENCY
+  DISCHARGED
+  REFERRED
+}
+
+enum TriageColor {
+  BLUE
+  YELLOW
+  RED
+}
+
+model Patient {
+  id                 String        @id @default(uuid())
+  eventId            String
+  event              Event         @relation(fields: [eventId], references: [id])
+  fullName           String
+  documentId         String?
+  age                Int
+  sex                String
+  congregationId     String
+  congregation       Congregation  @relation(fields: [congregationId], references: [id])
+  companionName      String
+  companionPhone     String
+  elderName          String?
+  elderPhone         String?
+  reasonForVisit     String
+  knownAllergies     String?
+  currentMedications String?
+  chronicConditions  String?
+  status             PatientStatus @default(WAITING_TRIAGE)
+  triageColor        TriageColor?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  triage      Triage?
+  attentions  Attention[]
+  emergencies Emergency[]
+
+  @@index([eventId, status])
+  @@index([eventId, triageColor])
+  @@map("patients")
+}
+
+// ─── TRIAGE ────────────────────────────────────────
+
+model TriageQuestion {
+  id       String  @id @default(uuid())
+  question String
+  type     String
+  options  Json?
+  order    Int
+  isActive Boolean @default(true)
+
+  answers TriageAnswer[]
+
+  @@map("triage_questions")
+}
+
+model Triage {
+  id          String      @id @default(uuid())
+  patientId   String      @unique
+  patient     Patient     @relation(fields: [patientId], references: [id])
+  color       TriageColor
+  notes       String?
+  performedBy String
+  createdAt   DateTime    @default(now())
+
+  answers TriageAnswer[]
+
+  @@map("triages")
+}
+
+model TriageAnswer {
+  id         String         @id @default(uuid())
+  triageId   String
+  triage     Triage         @relation(fields: [triageId], references: [id])
+  questionId String
+  question   TriageQuestion @relation(fields: [questionId], references: [id])
+  answer     String
+
+  @@map("triage_answers")
+}
+
+// ─── ATTENTION ─────────────────────────────────────
+
+model Attention {
+  id                   String    @id @default(uuid())
+  patientId            String
+  patient              Patient   @relation(fields: [patientId], references: [id])
+  attendedById         String
+  attendedBy           User      @relation("AttendedBy", fields: [attendedById], references: [id])
+  presumptiveDiagnosis String?
+  treatment            String?
+  medicationsGiven     String?
+  doctorNotes          String?
+  dischargeNotes       String?
+  dischargedAt         DateTime?
+  dischargedBy         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  measurements Measurement[]
+  suppliesUsed AttentionSupply[]
+
+  @@map("attentions")
+}
+
+model Measurement {
+  id               String    @id @default(uuid())
+  attentionId      String
+  attention        Attention @relation(fields: [attentionId], references: [id])
+  systolicBP       Int?
+  diastolicBP      Int?
+  heartRate        Int?
+  respiratoryRate  Int?
+  temperature      Float?
+  oxygenSaturation Int?
+  bloodGlucose     Float?
+  glasgowScore     Int?
+  observation      String?
+  measuredById     String
+  measuredBy       User      @relation(fields: [measuredById], references: [id])
+  createdAt        DateTime  @default(now())
+
+  @@index([attentionId, createdAt])
+  @@map("measurements")
+}
+
+// ─── SUPPLIES ──────────────────────────────────────
+
+model Supply {
+  id       String  @id @default(uuid())
+  name     String
+  category String?
+  unit     String?
+  isActive Boolean @default(true)
+
+  usages AttentionSupply[]
+
+  @@map("supplies")
+}
+
+model AttentionSupply {
+  id          String    @id @default(uuid())
+  attentionId String
+  attention   Attention @relation(fields: [attentionId], references: [id])
+  supplyId    String
+  supply      Supply    @relation(fields: [supplyId], references: [id])
+  quantity    Float
+  notes       String?
+
+  @@map("attention_supplies")
+}
+
+// ─── EMERGENCY ─────────────────────────────────────
+
+enum EmergencyLevel {
+  SOS_DOCTOR
+  EMERGENCY_VEHICLE
+  TRANSFER
+  AMBULANCE
+}
+
+model Emergency {
+  id             String         @id @default(uuid())
+  patientId      String
+  patient        Patient        @relation(fields: [patientId], references: [id])
+  level          EmergencyLevel
+  authorizedById String
+  authorizedBy   User           @relation("AuthorizedBy", fields: [authorizedById], references: [id])
+  notes          String?
+  resolved       Boolean        @default(false)
+  resolvedAt     DateTime?
+  resolvedNotes  String?
+  createdAt      DateTime       @default(now())
+
+  @@map("emergencies")
+}
+
+// ─── CONTACTS ──────────────────────────────────────
+
+enum ContactType {
+  DOCTOR_GUARDIA
+  AUXILIAR_SALUD
+  CAMILLERO
+  AMBULANCIA
+  CENTRO_ASISTENCIAL
+  AUTO_EMERGENCIA
+  OTRO
+}
+
+model EmergencyContact {
+  id       String      @id @default(uuid())
+  type     ContactType
+  name     String
+  phone    String
+  details  String?
+  isActive Boolean     @default(true)
+
+  @@map("emergency_contacts")
+}
+
+// ─── SHIFTS ────────────────────────────────────────
+
+model Shift {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+  date      DateTime
+  startTime String
+  endTime   String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  members ShiftMember[]
+
+  @@map("shifts")
+}
+
+model ShiftMember {
+  id      String @id @default(uuid())
+  shiftId String
+  shift   Shift  @relation(fields: [shiftId], references: [id])
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  role    Role
+
+  @@unique([shiftId, userId])
+  @@map("shift_members")
+}
+
+// ─── WHATSAPP TEMPLATES ────────────────────────────
+
+model WhatsAppTemplate {
+  id        String  @id @default(uuid())
+  eventType String  @unique
+  template  String
+  isActive  Boolean @default(true)
+
+  @@map("whatsapp_templates")
+}
+
+// ─── AUDIT LOG ─────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
