@@ -15,20 +15,7 @@ function generateOtpCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function sendOtpForUser(email: string, name: string) {
-  // Invalidate previous active codes
-  await prisma.otpCode.updateMany({
-    where: { email, used: false },
-    data: { used: true },
-  });
-
-  const code = generateOtpCode();
-  const expiresAt = new Date(Date.now() + env.OTP_EXPIRATION_MINUTES * 60 * 1000);
-  await prisma.otpCode.create({ data: { email, code, expiresAt } });
-  await sendOtpEmail(email, code, name);
-}
-
-// Step 1: Validate email + password, if OK send OTP
+// Password login — returns JWT directly
 export async function loginWithPassword(email: string, password: string) {
   const normalizedEmail = email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -38,16 +25,35 @@ export async function loginWithPassword(email: string, password: string) {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) throw new Error('Credenciales invalidas.');
 
-  await sendOtpForUser(normalizedEmail, user.name);
-
+  const tokens = generateTokens(user.id);
   return {
-    message: 'Codigo enviado al correo',
-    expiresInMinutes: env.OTP_EXPIRATION_MINUTES,
-    email: normalizedEmail,
+    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    ...tokens,
   };
 }
 
-// Step 2: Validate OTP → issue JWT
+// Request OTP — alternative to password
+export async function requestOtp(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (!user) throw new Error('Usuario no registrado. Contacte al administrador.');
+  if (!user.isActive) throw new Error('Usuario desactivado.');
+
+  // Invalidate previous active codes
+  await prisma.otpCode.updateMany({
+    where: { email: normalizedEmail, used: false },
+    data: { used: true },
+  });
+
+  const code = generateOtpCode();
+  const expiresAt = new Date(Date.now() + env.OTP_EXPIRATION_MINUTES * 60 * 1000);
+  await prisma.otpCode.create({ data: { email: normalizedEmail, code, expiresAt } });
+  await sendOtpEmail(normalizedEmail, code, user.name);
+
+  return { message: 'Codigo enviado al correo', expiresInMinutes: env.OTP_EXPIRATION_MINUTES };
+}
+
+// Verify OTP — returns JWT
 export async function verifyOtp(email: string, code: string) {
   const normalizedEmail = email.trim().toLowerCase();
   const otpRecord = await prisma.otpCode.findFirst({
@@ -84,23 +90,6 @@ export async function verifyOtp(email: string, code: string) {
     user: { id: user.id, email: user.email, name: user.name, role: user.role },
     ...tokens,
   };
-}
-
-// Resend OTP (requires already authenticated password step - uses email only, no password re-check)
-export async function resendOtp(email: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-  if (!user || !user.isActive) throw new Error('Usuario no encontrado.');
-
-  // Only allow resend if there was a recent valid code (within last 15 min)
-  const recent = await prisma.otpCode.findFirst({
-    where: { email: normalizedEmail, createdAt: { gt: new Date(Date.now() - 15 * 60 * 1000) } },
-    orderBy: { createdAt: 'desc' },
-  });
-  if (!recent) throw new Error('Debe iniciar sesion con su contrasena primero.');
-
-  await sendOtpForUser(normalizedEmail, user.name);
-  return { message: 'Codigo reenviado', expiresInMinutes: env.OTP_EXPIRATION_MINUTES };
 }
 
 export async function loginWithFirebase(idToken: string) {

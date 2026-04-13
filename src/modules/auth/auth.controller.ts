@@ -2,9 +2,18 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../../middleware/auth';
 import * as authService from './auth.service';
 
-export async function loginPassword(req: Request, res: Response) {
+export async function login(req: Request, res: Response) {
   try {
     const result = await authService.loginWithPassword(req.body.email, req.body.password);
+    res.json(result);
+  } catch (err: any) {
+    res.status(401).json({ error: err.message });
+  }
+}
+
+export async function requestOtp(req: Request, res: Response) {
+  try {
+    const result = await authService.requestOtp(req.body.email);
     res.json(result);
   } catch (err: any) {
     res.status(401).json({ error: err.message });
@@ -14,15 +23,6 @@ export async function loginPassword(req: Request, res: Response) {
 export async function verifyOtp(req: Request, res: Response) {
   try {
     const result = await authService.verifyOtp(req.body.email, req.body.code);
-    res.json(result);
-  } catch (err: any) {
-    res.status(401).json({ error: err.message });
-  }
-}
-
-export async function resendOtp(req: Request, res: Response) {
-  try {
-    const result = await authService.resendOtp(req.body.email);
     res.json(result);
   } catch (err: any) {
     res.status(401).json({ error: err.message });
