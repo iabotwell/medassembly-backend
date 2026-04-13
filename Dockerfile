@@ -1,5 +1,8 @@
 # ─── Build stage ──────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
+
+# Install OpenSSL for Prisma
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -9,14 +12,16 @@ COPY prisma ./prisma
 RUN npm ci
 
 # Build TypeScript
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 RUN npx prisma generate
-COPY tsconfig.build.json ./
 RUN npx tsc -p tsconfig.build.json
 
 # ─── Production stage ─────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
+
+# Install OpenSSL for Prisma runtime
+RUN apt-get update -y && apt-get install -y openssl ca-certificates wget && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
