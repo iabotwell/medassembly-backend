@@ -44,6 +44,40 @@ export async function getPatientDetail(id: string) {
   });
 }
 
+export async function updatePatient(id: string, data: any) {
+  return prisma.patient.update({
+    where: { id },
+    data,
+    include: { congregation: true },
+  });
+}
+
+export async function deletePatient(id: string) {
+  const patient = await prisma.patient.findUnique({
+    where: { id },
+    include: {
+      _count: { select: { attentions: true, emergencies: true } },
+      triage: { select: { id: true } },
+    },
+  });
+  if (!patient) throw new Error('Paciente no encontrado');
+
+  // If has attentions or emergencies, block. Otherwise cascade delete triage/answers.
+  if (patient._count.attentions > 0) {
+    throw new Error('No se puede eliminar: el paciente tiene atenciones registradas. Si necesita quitarlo, eliminelas primero.');
+  }
+  if (patient._count.emergencies > 0) {
+    throw new Error('No se puede eliminar: el paciente tiene emergencias registradas.');
+  }
+
+  if (patient.triage) {
+    await prisma.triageAnswer.deleteMany({ where: { triageId: patient.triage.id } });
+    await prisma.triage.delete({ where: { id: patient.triage.id } });
+  }
+  await prisma.patient.delete({ where: { id } });
+  return { message: 'Paciente eliminado' };
+}
+
 export async function updatePatientStatus(id: string, status: string, triageColor?: string) {
   const data: any = { status };
   if (triageColor) data.triageColor = triageColor;
