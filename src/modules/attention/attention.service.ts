@@ -64,3 +64,21 @@ export async function deleteMeasurement(id: string) {
   await prisma.measurement.delete({ where: { id } });
   return { message: 'Medicion eliminada' };
 }
+
+export async function updateMeasurement(id: string, data: {
+  systolicBP?: number | null;
+  diastolicBP?: number | null;
+  heartRate?: number | null;
+  respiratoryRate?: number | null;
+  temperature?: number | null;
+  oxygenSaturation?: number | null;
+  bloodGlucose?: number | null;
+  glasgowScore?: number | null;
+  observation?: string | null;
+}) {
+  return prisma.measurement.update({
+    where: { id },
+    data,
+    include: { measuredBy: { select: { id: true, name: true } } },
+  });
+}

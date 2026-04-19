@@ -58,3 +58,11 @@ export async function removeMeasurement(req: AuthRequest, res: Response) {
     res.json(result);
   } catch (err: any) { res.status(400).json({ error: err.message }); }
 }
+
+export async function updateMeasurementCtrl(req: AuthRequest, res: Response) {
+  try {
+    const m = await service.updateMeasurement(req.params.measurementId, req.body);
+    await createAuditLog(req.user.id, 'UPDATE_MEASUREMENT', 'measurements', req.params.measurementId);
+    res.json(m);
+  } catch (err: any) { res.status(400).json({ error: err.message }); }
+}

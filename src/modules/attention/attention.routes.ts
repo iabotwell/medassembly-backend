@@ -13,5 +13,6 @@ router.patch('/:id/discharge', requirePermission('discharge'), ctrl.discharge);
 router.post('/:id/supplies', requirePermission('attentions:update'), ctrl.addSupply);
 router.delete('/:id', requirePermission('attentions:delete'), ctrl.remove);
 router.delete('/:id/measurements/:measurementId', requirePermission('measurements:delete'), ctrl.removeMeasurement);
+router.put('/:id/measurements/:measurementId', requirePermission('measurements:update'), ctrl.updateMeasurementCtrl);
 
 export default router;
