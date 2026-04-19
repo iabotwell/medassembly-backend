@@ -14,7 +14,15 @@ async function main() {
   try {
     await client.connect();
 
-    // Check if the old ENCARGADO enum value exists
+    // ---- Triage default (always runs) ----
+    try {
+      const r = await client.query(`UPDATE patients SET "triageColor" = 'BLUE' WHERE "triageColor" IS NULL;`);
+      if (r.rowCount > 0) console.log(`[migrate-roles] Set ${r.rowCount} patients to BLUE triage default`);
+    } catch (e) {
+      console.log('[migrate-roles] triage default skipped:', e.message);
+    }
+
+    // ---- Legacy ENCARGADO role migration (runs only if legacy values exist) ----
     const enumCheck = await client.query(`
       SELECT 1
       FROM pg_type t
@@ -24,42 +32,20 @@ async function main() {
     `);
 
     if (enumCheck.rowCount === 0) {
-      console.log('[migrate-roles] Nothing to migrate (ENCARGADO enum value not present)');
+      console.log('[migrate-roles] Role migration not needed (ENCARGADO enum value not present)');
       return;
     }
 
-    // Ensure ENCARGADO_TURNO value exists in the enum before updating rows
-    try {
-      await client.query(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'ENCARGADO_TURNO';`);
-    } catch (e) {
-      // some Postgres versions don't allow inside a tx; try again outside
-      console.log('[migrate-roles] ADD VALUE warning:', e.message);
-    }
-    try {
-      await client.query(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'ENCARGADO_SALUD';`);
-    } catch (e) {
-      console.log('[migrate-roles] ADD VALUE warning:', e.message);
-    }
+    try { await client.query(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'ENCARGADO_TURNO';`); } catch (e) { console.log('[migrate-roles] ADD VALUE warning:', e.message); }
+    try { await client.query(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'ENCARGADO_SALUD';`); } catch (e) { console.log('[migrate-roles] ADD VALUE warning:', e.message); }
 
-    // Update all users with the old role value
-    const result = await client.query(`
-      UPDATE users SET role = 'ENCARGADO_TURNO' WHERE role = 'ENCARGADO';
-    `);
+    const result = await client.query(`UPDATE users SET role = 'ENCARGADO_TURNO' WHERE role = 'ENCARGADO';`);
     console.log(`[migrate-roles] Migrated ${result.rowCount} users from ENCARGADO → ENCARGADO_TURNO`);
 
-    // Also migrate shift_members
     try {
       await client.query(`UPDATE shift_members SET role = 'ENCARGADO_TURNO' WHERE role = 'ENCARGADO';`);
     } catch (e) {
       console.log('[migrate-roles] shift_members migration skipped:', e.message);
-    }
-
-    // Default triageColor to BLUE for patients without one (no triage step)
-    try {
-      const r = await client.query(`UPDATE patients SET "triageColor" = 'BLUE' WHERE "triageColor" IS NULL;`);
-      if (r.rowCount > 0) console.log(`[migrate-roles] Set ${r.rowCount} patients to BLUE triage default`);
-    } catch (e) {
-      console.log('[migrate-roles] triage default skipped:', e.message);
     }
   } catch (err) {
     console.error('[migrate-roles] Error:', err.message);
