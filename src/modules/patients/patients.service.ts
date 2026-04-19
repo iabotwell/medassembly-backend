@@ -52,15 +52,30 @@ export async function updatePatient(id: string, data: any) {
   });
 }
 
-export async function deletePatient(id: string) {
+export async function deletePatient(id: string, force = false) {
   const patient = await prisma.patient.findUnique({
     where: { id },
     include: {
       _count: { select: { attentions: true, emergencies: true } },
       triage: { select: { id: true } },
+      attentions: { select: { id: true } },
     },
   });
   if (!patient) throw new Error('Paciente no encontrado');
+  if (force) {
+    for (const att of patient.attentions) {
+      await prisma.measurement.deleteMany({ where: { attentionId: att.id } });
+      await prisma.attentionSupply.deleteMany({ where: { attentionId: att.id } });
+    }
+    await prisma.attention.deleteMany({ where: { patientId: id } });
+    await prisma.emergency.deleteMany({ where: { patientId: id } });
+    if (patient.triage) {
+      await prisma.triageAnswer.deleteMany({ where: { triageId: patient.triage.id } });
+      await prisma.triage.delete({ where: { id: patient.triage.id } });
+    }
+    await prisma.patient.delete({ where: { id } });
+    return { message: 'Paciente eliminado (incluyendo atenciones y mediciones)' };
+  }
 
   // If has attentions or emergencies, block. Otherwise cascade delete triage/answers.
   if (patient._count.attentions > 0) {

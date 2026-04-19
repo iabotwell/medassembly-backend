@@ -38,3 +38,29 @@ export async function dischargePatient(attentionId: string, data: { dischargeNot
 export async function addSupplyUsage(attentionId: string, data: { supplyId: string; quantity: number; notes?: string }) {
   return prisma.attentionSupply.create({ data: { attentionId, ...data } });
 }
+
+export async function deleteAttention(id: string) {
+  const attention = await prisma.attention.findUnique({
+    where: { id },
+    select: { id: true, patientId: true },
+  });
+  if (!attention) throw new Error('Atencion no encontrada');
+
+  await prisma.measurement.deleteMany({ where: { attentionId: id } });
+  await prisma.attentionSupply.deleteMany({ where: { attentionId: id } });
+  await prisma.attention.delete({ where: { id } });
+
+  const remaining = await prisma.attention.count({ where: { patientId: attention.patientId, dischargedAt: null } });
+  if (remaining === 0) {
+    await prisma.patient.update({
+      where: { id: attention.patientId },
+      data: { status: 'WAITING_ATTENTION' },
+    });
+  }
+  return { message: 'Atencion eliminada' };
+}
+
+export async function deleteMeasurement(id: string) {
+  await prisma.measurement.delete({ where: { id } });
+  return { message: 'Medicion eliminada' };
+}

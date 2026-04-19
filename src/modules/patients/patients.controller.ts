@@ -53,8 +53,9 @@ export async function update(req: AuthRequest, res: Response) {
 
 export async function remove(req: AuthRequest, res: Response) {
   try {
-    const result = await service.deletePatient(req.params.id);
-    await createAuditLog(req.user.id, 'DELETE_PATIENT', 'patients', req.params.id);
+    const force = req.query.force === 'true';
+    const result = await service.deletePatient(req.params.id, force);
+    await createAuditLog(req.user.id, 'DELETE_PATIENT', 'patients', req.params.id, { force });
     res.json(result);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
