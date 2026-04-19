@@ -53,6 +53,14 @@ async function main() {
     } catch (e) {
       console.log('[migrate-roles] shift_members migration skipped:', e.message);
     }
+
+    // Default triageColor to BLUE for patients without one (no triage step)
+    try {
+      const r = await client.query(`UPDATE patients SET "triageColor" = 'BLUE' WHERE "triageColor" IS NULL;`);
+      if (r.rowCount > 0) console.log(`[migrate-roles] Set ${r.rowCount} patients to BLUE triage default`);
+    } catch (e) {
+      console.log('[migrate-roles] triage default skipped:', e.message);
+    }
   } catch (err) {
     console.error('[migrate-roles] Error:', err.message);
   } finally {

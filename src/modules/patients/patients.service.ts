@@ -14,7 +14,7 @@ export async function listPatients(filters: { eventId?: string; status?: string;
 
 export async function createPatient(eventId: string, data: any) {
   return prisma.patient.create({
-    data: { ...data, eventId, status: 'WAITING_ATTENTION' },
+    data: { ...data, eventId, status: 'WAITING_ATTENTION', triageColor: 'BLUE' },
     include: { congregation: true },
   });
 }
