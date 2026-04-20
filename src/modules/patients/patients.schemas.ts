@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const createPatientSchema = z.object({
   fullName: z.string().min(1),
   documentId: z.string().optional(),
+  phone: z.string().optional(),
   age: z.number().int().min(0).max(150),
   sex: z.enum(['M', 'F']),
   congregationId: z.string().uuid(),

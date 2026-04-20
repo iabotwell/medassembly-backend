@@ -125,6 +125,7 @@ model Patient {
   event              Event         @relation(fields: [eventId], references: [id])
   fullName           String
   documentId         String?
+  phone              String?
   age                Int
   sex                String
   congregationId     String
