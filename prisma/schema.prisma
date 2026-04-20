@@ -126,15 +126,15 @@ model Patient {
   fullName           String
   documentId         String?
   phone              String?
-  age                Int
-  sex                String
-  congregationId     String
-  congregation       Congregation  @relation(fields: [congregationId], references: [id])
-  companionName      String
-  companionPhone     String
+  age                Int?
+  sex                String?
+  congregationId     String?
+  congregation       Congregation? @relation(fields: [congregationId], references: [id])
+  companionName      String?
+  companionPhone     String?
   elderName          String?
   elderPhone         String?
-  reasonForVisit     String
+  reasonForVisit     String?
   knownAllergies     String?
   currentMedications String?
   chronicConditions  String?

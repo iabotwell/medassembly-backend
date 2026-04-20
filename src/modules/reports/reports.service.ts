@@ -59,7 +59,7 @@ export async function getEventReport(eventId: string) {
 
   const byCongregation: Record<string, number> = {};
   patients.forEach(p => {
-    const name = p.congregation.name;
+    const name = p.congregation?.name || 'Sin congregacion';
     byCongregation[name] = (byCongregation[name] || 0) + 1;
   });
 
