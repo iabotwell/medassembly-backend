@@ -80,16 +80,23 @@ export async function deleteUser(id: string, requesterId: string, force = false)
   }
 
   if (force && total > 0) {
-    // Reassign historical records to the requester (admin) to preserve medical history
-    await prisma.$transaction([
-      prisma.attention.updateMany({ where: { attendedById: id }, data: { attendedById: requesterId } }),
-      prisma.measurement.updateMany({ where: { measuredById: id }, data: { measuredById: requesterId } }),
-      prisma.emergency.updateMany({ where: { authorizedById: id }, data: { authorizedById: requesterId } }),
-      prisma.shiftMember.deleteMany({ where: { userId: id } }),
-    ]);
+    // Fully delete all related records (cascade)
+    const userAttentions = await prisma.attention.findMany({ where: { attendedById: id }, select: { id: true } });
+    const attentionIds = userAttentions.map(a => a.id);
+
+    await prisma.measurement.deleteMany({ where: { measuredById: id } });
+    if (attentionIds.length > 0) {
+      await prisma.measurement.deleteMany({ where: { attentionId: { in: attentionIds } } });
+      await prisma.attentionSupply.deleteMany({ where: { attentionId: { in: attentionIds } } });
+    }
+    await prisma.attention.deleteMany({ where: { attendedById: id } });
+    await prisma.emergency.deleteMany({ where: { authorizedById: id } });
+    await prisma.shiftMember.deleteMany({ where: { userId: id } });
   }
 
   await prisma.auditLog.deleteMany({ where: { userId: id } });
   await prisma.user.delete({ where: { id } });
-  return { message: force && total > 0 ? `Usuario eliminado. ${attentions + measurements + emergencies} registros reasignados al administrador.` : 'Usuario eliminado.' };
+  // requesterId kept for future audit attribution (unused in current delete flow)
+  void requesterId;
+  return { message: force && total > 0 ? `Usuario y todos sus registros eliminados (${total} registros).` : 'Usuario eliminado.' };
 }
