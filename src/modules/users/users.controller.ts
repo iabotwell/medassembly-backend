@@ -48,7 +48,8 @@ export async function toggle(req: AuthRequest, res: Response) {
 
 export async function remove(req: AuthRequest, res: Response) {
   try {
-    const result = await usersService.deleteUser(req.params.id, req.user.id);
+    const force = req.query.force === 'true';
+    const result = await usersService.deleteUser(req.params.id, req.user.id, force);
     res.json(result);
   } catch (err: any) {
     res.status(400).json({ error: err.message });

@@ -54,7 +54,7 @@ export async function toggleUser(id: string) {
   return prisma.user.update({ where: { id }, data: { isActive: !user.isActive } });
 }
 
-export async function deleteUser(id: string, requesterId: string) {
+export async function deleteUser(id: string, requesterId: string, force = false) {
   if (id === requesterId) {
     throw new Error('No puedes eliminar tu propia cuenta.');
   }
@@ -64,22 +64,32 @@ export async function deleteUser(id: string, requesterId: string) {
     throw new Error('No se puede eliminar al Super Administrador.');
   }
 
-  // Check if user has related records that would prevent deletion
-  const relatedCounts = await prisma.$transaction([
+  const [attentions, measurements, emergencies, shiftMembers] = await prisma.$transaction([
     prisma.attention.count({ where: { attendedById: id } }),
     prisma.measurement.count({ where: { measuredById: id } }),
     prisma.emergency.count({ where: { authorizedById: id } }),
     prisma.shiftMember.count({ where: { userId: id } }),
   ]);
 
-  const total = relatedCounts.reduce((a, b) => a + b, 0);
-  if (total > 0) {
+  const total = attentions + measurements + emergencies + shiftMembers;
+
+  if (total > 0 && !force) {
     throw new Error(
-      `No se puede eliminar: el usuario tiene ${total} registros asociados (atenciones, mediciones, emergencias o turnos). Desactivelo en su lugar.`
+      `El usuario tiene ${total} registros asociados (${attentions} atenciones, ${measurements} mediciones, ${emergencies} emergencias, ${shiftMembers} turnos). Use eliminar con cascada para reasignarlos al administrador.`
     );
+  }
+
+  if (force && total > 0) {
+    // Reassign historical records to the requester (admin) to preserve medical history
+    await prisma.$transaction([
+      prisma.attention.updateMany({ where: { attendedById: id }, data: { attendedById: requesterId } }),
+      prisma.measurement.updateMany({ where: { measuredById: id }, data: { measuredById: requesterId } }),
+      prisma.emergency.updateMany({ where: { authorizedById: id }, data: { authorizedById: requesterId } }),
+      prisma.shiftMember.deleteMany({ where: { userId: id } }),
+    ]);
   }
 
   await prisma.auditLog.deleteMany({ where: { userId: id } });
   await prisma.user.delete({ where: { id } });
-  return { message: 'Usuario eliminado' };
+  return { message: force && total > 0 ? `Usuario eliminado. ${attentions + measurements + emergencies} registros reasignados al administrador.` : 'Usuario eliminado.' };
 }
