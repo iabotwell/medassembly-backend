@@ -17,6 +17,18 @@ async function main() {
     },
   });
 
+  // 1b. Super Admin — franciscovilla@gmail.com (login: password + OTP)
+  await prisma.user.upsert({
+    where: { email: 'franciscovilla@gmail.com' },
+    update: { role: 'ADMIN', isActive: true, passwordHash: adminPasswordHash },
+    create: {
+      email: 'franciscovilla@gmail.com',
+      passwordHash: adminPasswordHash,
+      name: 'Francisco Villa',
+      role: 'ADMIN',
+    },
+  });
+
   // 2. Triage questions
   const existing = await prisma.triageQuestion.count();
   if (existing === 0) {
